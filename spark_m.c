@@ -1,3 +1,8 @@
+/*
+Información del driver
+Driver para utilizar la estación meteorologica I2C sparkfun weathershield 
+*/
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/timer.h>
@@ -9,7 +14,7 @@
 #include <linux/fs.h>
 #include <uasm/uacces.h>  //used to move data to from kernel to user space
 #include <linux/spinlock.h>
-#include <asm/aotmic.h>
+#include <asm/atomic.h>
 
 #define DRV_NAME "spark"
 
@@ -18,6 +23,25 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Team StationX_FRM");
 MODULE_DESCRIPTION("Homebrew driver for sparkfun weather station");
 MODULE_VERSION("0.1");
+
+/*Iniciando el driver*/
+static int _init spark_init(void)
+{
+  return i2c_add_driver(&spark_driver);
+}
+module_init(spark_init);
+
+static void _exit spark_cleanup(void)
+{
+  i2c_del_driver(&spark_driver);
+}
+module_exit(spark_cleanup);
+
+/*Comunicación básica*/
+
+int i2c_master_send(struct i2c_client *client, const char *buf, int count);
+int i2c_master_recv(struct i2c_client *client, char *buf, int count);
+
 
 static struct spark_algorithm spfun_algorithm = {
   .name          = "fun_algorithm",
