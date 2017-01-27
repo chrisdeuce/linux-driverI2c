@@ -16,13 +16,31 @@ Driver para utilizar la estación meteorologica I2C sparkfun weathershield
 #include <linux/spinlock.h>
 #include <asm/atomic.h>
 
-#define DRV_NAME "spark"
+//#define DRV_NAME "spark"
 
 //Register functions
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Team StationX_FRM");
 MODULE_DESCRIPTION("Homebrew driver for sparkfun weather station");
 MODULE_VERSION("0.1");
+
+/*Creando la estructura del dispositivo*/
+struct spark_device {
+  char data[100];
+  struct data[100];
+}virtual device;
+
+/*
+Registrando el dispositivo
+*/
+struct cdev *sparkdev
+int major_number;
+int ret;
+
+dev_t dev_num;
+
+#define DEVICE_NAME "sparkfun"
+
 
 /*Iniciando el driver*/
 static int _init spark_init(void)
