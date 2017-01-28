@@ -1,29 +1,42 @@
 /*
 Información del driver
-Driver para utilizar la estación meteorologica I2C sparkfun weathershield 
+date:    Jan 20 2017
+version: 1.0
+brief:  Driver para utilizar la estación meteorologica I2C sparkfun weathershield 
 */
 #include <linux/module.h>
+#include <linux/init.h>
+#include <linux/device.h>
 #include <linux/kernel.h>
-#include <linux/timer.h>
 #include <linux/input.h>
-#include <linux/io.h>
-#include <linux/interrupt.h>
-#include <linux/param.h>
-#include <linux/sched.h>
 #include <linux/fs.h>
-#include <uasm/uacces.h>  //used to move data to from kernel to user space
 #include <linux/spinlock.h>
 #include <linux/semaphore.h>
 #include <asm/atomic.h>
 #include <asm/uaccess.h> // copy to user ; copy from user
-
-//#define DRV_NAME "spark"
+#define DEVICE_NAME "spark"  // El dispositivo aparecera en /dev/spark/
+#define CLASS_NAME "spk"    // Tipo de dispositivo
 
 //Register functions
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Team StationX_FRM");
-MODULE_DESCRIPTION("Homebrew driver for sparkfun weather station");
+MODULE_AUTHOR("Team StationX");
+MODULE_DESCRIPTION("Homebrew driver for sparkfun weather station for embedded linux diploma curse");
 MODULE_VERSION("0.1");
+
+static int majorNumber;                     // Almacena el número de dispositivo
+static char message[256] ={0};              // Memoria para la cadena que pasa del espacio de usuario
+static short size_of_message;               // Utilizado para saber el tamaño de la cadena almacenada
+static int numberOpens =0;                  // Contador de uso del dispositivo
+static struct class* sparkClass = NULL;     // puntero de la clase del dispositivo
+static struct device* sparkDevice = NULL;   // puntero a la estructura del dispositivo
+
+
+/* Funciones prototipo para el driver */
+static int dev_open(struct inode *, struct file *);
+static int dev_release(struct inode *, struct file *);
+static ssize_t dev_read(struct file *, size_t,loff_t *);
+static ssize_t dev_write(struct file *, const char *, size_t, loff_t*);
+
 
 /*
  1.  Creando la estructura del dispositivo
@@ -42,7 +55,6 @@ int ret;
 
 dev_t dev_num;
 
-#define DEVICE_NAME "sparkfun"
 /*
 3. Registrando el dispositivo
 */
@@ -58,16 +70,24 @@ static int driver_entry(void){
   printk(KERN_INFO "Sparkfun: major number is: %d",major_number);
   printk(KERN_INFO "\tuse \"mkmod /dev/%s c %d 0\"for device file",DEVICE_NAME,major_number); //dmesg
   //Paso 2, crear la estructura cdev
-  mcdev =cdev_alloc();
+  mcdev =cdev_alloc(); //Inicializando el driver
   mcdev->ops=&fops;
   mcdev-owner = THIS_MODULE;
   /*creación de cdev*/
+  /*Agregando el device al kernel*/
   ret =cdev_add(mcdev,dev_num,1);
   if(ret<0){
-      printk(KERN_ALERT "Sparkfun: incapaz de agregar cdev en el kernel")
+      printk(KERN_ALERT "Sparkfun: unable of load the cdev to kernel")
       return ret;
   }
+  //Inicializando el semáforo
+  sema_init(&virtual_device.sem,1); /*value 1 to the semaphore*/
   return 0;
+}
+
+static void driver_exit(void){
+  // removiendo todo en orden contrario
+  cdev_del(mcdev);
 }
 
 
