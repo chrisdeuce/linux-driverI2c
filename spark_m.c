@@ -38,6 +38,17 @@ static ssize_t dev_read(struct file *, size_t,loff_t *);
 static ssize_t dev_write(struct file *, const char *, size_t, loff_t*);
 
 
+/*Brief devices*/
+static struct file_operations fops =
+{
+    .open = dev_open,
+    .read = dev_read,
+    .write = dev_write,
+    .release = dev_release,
+};
+
+
+
 /*
  1.  Creando la estructura del dispositivo
 */
@@ -95,8 +106,65 @@ static void driver_exit(void){
 /*Iniciando el driver*/
 static int _init spark_init(void)
 {
-  return i2c_add_driver(&spark_driver);
+  printk(KERN_INFO "SParkfun: Initializing the Sparkfun \n");
+  // Allocating a major number for the device
+  major_number = register_chrdev(0,DEVICE_NAME,&fops);
+  if (majorNumber<0)
+    {
+      printk(KERN_ALERT "Sparkfun failed to register a major number\n");
+      return majorNumber;
+    }
+  printk(KERN_INFO "Sparkfun: registered correctly with major number %d\n",majorNumber);
+  /*Register the device class*/
+  sparkClass = device_create(THIS_MODULE,CLASS_NAME);
+  if(IS_ERR(sparkClass)){
+    class_destroy(sparkClass);
+    unregister_chrdev(majorNumber,DEVICE_NAME);
+    printk(KERN_ALERT "Failed to register the device class\n");
+    return PTR_ERR(sparkClass);
+  }
+  printk(KERN_INFO "Sparkfun: device class created correctly\n");
+
+  /*Register the device driver*/
+  sparkDevice = device_create(sparkClass,NULL,MKDEV(majorNumber,0),NULL,DEVICE_NAME);
+  if(IS_ERR(sparkDevice)){
+    class_destroy(sparkClass);
+    unregister_chrdev(majorNumber,DEVICE_NAME);
+    printk(KERN_ALERT "Failed to create the device\n");
+    return PTR_ERR(sparkDevice);
+  }
+  printk(KERN_INFO "Sparkfun: device class created correctly\n");
+  return 0;
 }
+
+static void __exit sparkfun_exit(void){
+  device_destroy(slarkClass,MKDEV(majorNumber,0)); /*Removing the device*/
+  class_unregister(sparkClass);
+  class_destroy(sparkClass);
+  unregister_chrdev(majorNumber,DEVICE_NAME);
+  printk(KERN_INFO "Sparkfun: Removing from kernel\n");
+}
+
+static int dev_open(struct inode *inodep, struct file *filep){
+  numberOpens++;
+  printk(KERN_INFO "Sparkfun: Device has been opened %d time(s)\n");
+  return 0;
+}
+
+static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset){
+  int error_count = 0;
+  error_count = copy_to_user(buffer,message,size_of_message);
+
+  if(error_count=0){
+    printk(KERN_INFO "Sparkfun: Sent %d of chars to the user \n",size_of_message);
+    return (size_of_message=0);
+  }
+  else{
+    printk(KERN_INFO "Sparkfun: Failed to send info from sensors to the user\n",error_count);
+    return -EFAULT;
+  }
+}
+
 module_init(spark_init);
 
 static void _exit spark_cleanup(void)
