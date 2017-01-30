@@ -49,65 +49,11 @@ static struct file_operations fops =
     .release = dev_release,
 };
 
-/*
- 1.  Creando la estructura del dispositivo
-*/
-struct spark_device {
-  char data[100];
-  struct data[100];
-}virtual device;
-
-
-/*
-2. Registrando el dispositivo
-*/
-struct cdev *sparkdev
-int major_number;
-int ret;
-
-dev_t dev_num;
-
-/*
-3. Registrando el dispositivo
-*/
-
-static int driver_entry(void){
-  //Paso 1, usar asignación automática, utilizando major_number
-  ret = alloc_chrdev_region(&dev_num,0,1,DEVICE_NAME);
-  if(ret<0){ /* verificamos si hay error al registrar el dispositivo*/
-    printk(KERN_ALERT "Sparkfun failed to allocate a major number");
-    return ret;
-  }
-  major_number = MAJOR(dev_num); //extrae el número mayor que se almacena en la variable (MACRO)
-  printk(KERN_INFO "Sparkfun: major number is: %d",major_number);
-  printk(KERN_INFO "\tuse \"mkmod /dev/%s c %d 0\"for device file",DEVICE_NAME,major_number); //dmesg
-  //Paso 2, crear la estructura cdev
-  mcdev =cdev_alloc(); //Inicializando el driver
-  mcdev->ops=&fops;
-  mcdev-owner = THIS_MODULE;
-  /*creación de cdev*/
-  /*Agregando el device al kernel*/
-  ret =cdev_add(mcdev,dev_num,1);
-  if(ret<0){
-      printk(KERN_ALERT "Sparkfun: unable of load the cdev to kernel")
-      return ret;
-  }
-  //Inicializando el semáforo
-  sema_init(&virtual_device.sem,1); /*value 1 to the semaphore*/
-  return 0;
-}
-
-static void driver_exit(void){
-  // removiendo todo en orden contrario
-  cdev_del(mcdev);
-}
-
-
 
 /*Iniciando el driver*/
-static int _init spark_init(void)
+static int __init spark_init(void)
 {
-  printk(KERN_INFO "SParkfun: Initializing the Sparkfun \n");
+  printk(KERN_INFO "Sparkfun: Initializing the Sparkfun \n");
   // Allocating a major number for the device
   major_number = register_chrdev(0,DEVICE_NAME,&fops);
   if (majorNumber<0)
