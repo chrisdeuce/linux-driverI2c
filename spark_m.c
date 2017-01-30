@@ -47,8 +47,6 @@ static struct file_operations fops =
     .release = dev_release,
 };
 
-
-
 /*
  1.  Creando la estructura del dispositivo
 */
@@ -165,13 +163,12 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
   }
 }
 
-module_init(spark_init);
-
-static void _exit spark_cleanup(void)
-{
-  i2c_del_driver(&spark_driver);
+static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset){
+  sprintf(message, "%s(%zu letters)",buffer, len);
+  size_of_message = strlen(message);
+  pritnk(KERN_INFO "Sparkfun: Received %zu characters from the sensor\n",len);
+  return len;
 }
-module_exit(spark_cleanup);
 
 /*Comunicación básica*/
 
@@ -210,3 +207,11 @@ static s32 spfun_access(struct spark_adapter *adap,
   dev_info(&adap->dev, "addr = %.4x\n",addr);
   dev_info(&adap->swv, "flags = %.4x\n",flags)
 }
+
+static int dev_release(struct inode *inodep,struct file *filep){
+  printk(KERN_INFO "Sparkfun: Device successfully closed\n");
+  return 0;
+}
+
+module_init(spark_init);
+module_exit(spark_exit);
