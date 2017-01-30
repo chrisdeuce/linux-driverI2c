@@ -37,6 +37,8 @@ static int dev_release(struct inode *, struct file *);
 static ssize_t dev_read(struct file *, size_t,loff_t *);
 static ssize_t dev_write(struct file *, const char *, size_t, loff_t*);
 
+MODULE_DEVICE_TABLE(i2c, spark_idtable);
+
 
 /*Brief devices*/
 static struct file_operations fops =
@@ -54,6 +56,7 @@ struct spark_device {
   char data[100];
   struct data[100];
 }virtual device;
+
 
 /*
 2. Registrando el dispositivo
@@ -190,7 +193,7 @@ static u32 spfun_func(struct spark_adapter *adapter)
          I2C_FUNC_SMBUS_BYTE_DATA |
          I2C_FUNC_SMBUS_WORD_DATA |
          I2C_FUNC_SMBUS_BLOCK_DATA;
-}
+};
 
 static s32 spfun_access(struct spark_adapter *adap,
 			u16 addr,
@@ -205,7 +208,51 @@ static s32 spfun_access(struct spark_adapter *adap,
 	   "following parameters:\n",
 	   __FUNCTION__);
   dev_info(&adap->dev, "addr = %.4x\n",addr);
-  dev_info(&adap->swv, "flags = %.4x\n",flags)
+  dev_info(&adap->dev, "flags = %.4x\n",flags);
+  dev_info(&adap->dev, "read_write = %s\n",
+	   read_write == I2C_SMBUS_WRITE ?
+	   "write" : "read");
+  dev_info(&adap->dev, "command = %d\n",
+	   command);
+
+  switch (size) {
+  case I2C_SMBUS_PROC_CALL:
+    dev_info(&adap->dev,
+	     "size = I2C_SMBUS_PROC_CALL\n");
+    break;
+  case I2C_SMBUS_QUICK:
+    dev_info(&adap->dev,
+	     "size = I2C_SMBUS_QUICK");
+    break;
+  case I2C_SMBUS_BYTE:
+    dev_info(&adap->dev,
+	     "size = I2C_SMBUS_BYTE");
+    break;
+  case I2C_SMBUS_WORD_DATA:
+    dev_info(&adap->dev,
+	     "size = I2C_SMBUS_WORD_DATA\n");
+    if(read_write == I2C_SMBUS_WRITE)
+      dev_info(&adap->dev,
+	       "data = %.4x\n",data->word);
+    break;
+  case I2C_SMBUS_BLOCK_DATA:
+    dev_info(&adap->dev,
+	     "size = I2C_SMBUS_BLOCK_DATA\n");
+    if(read_write== I2C_SMBUS_WRITE){
+      dev_info(&adpa->dev,"data = %.4x\n",
+	       data->word);
+      if (len<0)
+	len=0;
+      if(len>32)
+	len=32;
+      for (i =1 ; i <= len; i++)
+	dev_info(&adap->dev,
+		 "data->block[%d]= %x\n",
+		 i,data->block[i]);
+    }
+    break;
+  }
+  return 0;
 }
 
 static int dev_release(struct inode *inodep,struct file *filep){
