@@ -12,6 +12,7 @@ brief:  Driver para utilizar la estación meteorologica I2C sparkfun weathershie
 #include <linux/fs.h>
 #include <linux/spinlock.h>
 #include <linux/semaphore.h>
+#include <linux/i2c.h>
 #include <asm/atomic.h>
 #include <asm/uaccess.h> // copy to user ; copy from user
 #define DEVICE_NAME "spark"  // El dispositivo aparecera en /dev/spark/
