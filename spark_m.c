@@ -12,7 +12,7 @@
 #include <linux/fs.h>
 #include <linux/stddef.h>
 #include <linux/spinlock.h>
-#include <linux/semaphore.h>
+#include <linux/config.h>
 #include <linux/i2c.h>
 #include <asm/atomic.h>
 #include <asm/uaccess.h> // copy to user ; copy from user
@@ -123,95 +123,75 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
 
 /*Comunicación básica*/
 
-//int i2c_master_send(struct i2c_client *client, const char *buf, int count);
-//int i2c_master_recv(struct i2c_client *client, char *buf, int count);
-
-/*
-static struct spark_adapter sp_adapter = {
-  .owner = THIS_MODULE,
-  .class = I2C_ADAP_CLASS_SMBUS
-  .algo = &spark_algorithm,
-  .name = "sp_adapter",
-};
-
-retval = i2c_add_adapter(&sp_adapter);
-
-
-static struct spark_algorithm spfun_algorithm = {
-  .name          = "spfun_algorithm",
-  .id            = I2C_ALGO_SMBUS,
-  .smbus_xfer    = spfun_access,
-  .functionality = spfun_func,
-};
-
-static u32 spfun_func(struct spark_adapter *adapter)
-{
-  return I2C_FUNC_SMBUS_QUICK |
-         I2C_FUNC_SMBUS_BYTE |
-         I2C_FUNC_SMBUS_BYTE_DATA |
-         I2C_FUNC_SMBUS_WORD_DATA |
-         I2C_FUNC_SMBUS_BLOCK_DATA;
-}
-
-static s32 spfun_access(struct spark_adapter *adap,
-			u16 addr,
-			unsigned short flags,
-			char read_write,
-			u8 command,
-			int size,
-			union i2c_smbus_data *data)
+static s32 spark_access(struct i2c_adapter *adap, u16 addr,
+			unsigned short flags, char read_write,
+			u8 command, int size, union i2c_smbus_data *data)
 {
   int i, len;
-  dev_info(&adap->dev, "%s was called with the following parameters:\n",
-	   __FUNCTION__);
-  dev_info(&adap->dev, "addr = %.4x\n",addr);
-  dev_info(&adap->dev, "flags = %.4x\n",flags);
-  dev_info(&adap->dev, "read_write = %s\n",
-	   read_write == I2C_SMBUS_WRITE ?
-	   "write" : "read");
-  dev_info(&adap->dev, "command = %d\n",
-	   command);
+  dev_info(&adap->dev,"%s was called with the following parameters:\n",__FUNCTION__);
+  dev_info(&adap->dev,"addr = %.4x\n",addr);
+  dev_info(&adap->dev,"flags = %.4x\n",flags);
+  dev_info(&adap->dev,"read_write = %s\n",read_write == I2C_SMBUS_WRITE ? "write" : "read");
+  dev_info(&adap->dev,"command = %d\n",command);
 
-  switch (size) {
-  case I2C_SMBUS_PROC_CALL:
-    dev_info(&adap->dev,
-	     "size = I2C_SMBUS_PROC_CALL\n");
+  switch(size){
+  case I2C_SMBUS_PROC_CALL:,""
+      dev_info(&adap->dev,"size = I2C_SMBUS_PROC_CALL\n");
     break;
   case I2C_SMBUS_QUICK:
-    dev_info(&adap->dev,
-	     "size = I2C_SMBUS_QUICK");
+    dev_info(&adap->dev,"size = I2C_SMBUS_QUICK\n");
     break;
   case I2C_SMBUS_BYTE:
-    dev_info(&adap->dev,
-	     "size = I2C_SMBUS_BYTE");
+    dev_info(&adap->dev,"size = I2C_SMBUS_BYTE\n");
+    break;
+  case I2C_SMBUS_BYTE_DATA:
+    dev_info(&adap->dev,"size = I2C_SMBUS_BYTE_DATA\n");
+    if(read_write == I2C_SMBUS_WRITE)
+      dev_info(&adap->dev,"data = %.2x\n",data->byte);
     break;
   case I2C_SMBUS_WORD_DATA:
-    dev_info(&adap->dev,
-	     "size = I2C_SMBUS_WORD_DATA\n");
+    dev_info(&adap->dev,"size = I2C_SMBUS_WORD_DATA\n");
     if(read_write == I2C_SMBUS_WRITE)
-      dev_info(&adap->dev,
-	       "data = %.4x\n",data->word);
+      dev_info(&adap->dev,"data = %.4x\n",data->word);
     break;
   case I2C_SMBUS_BLOCK_DATA:
-    dev_info(&adap->dev,
-	     "size = I2C_SMBUS_BLOCK_DATA\n");
-    if(read_write== I2C_SMBUS_WRITE){
-      dev_info(&adap->dev,"data = %.4x\n",
-	       data->word);
-      if (len<0)
+    dev_info(&adap->dev,"size = I2C_SMBUS_BLOCK_DATA\n");
+    if(read_write == I2C_SMBUS_WRITE){
+      dev_info(&adap->dev,"data = %.4x\n",data->word);
+      len = data->block[0];
+      if(len<0)
 	len=0;
       if(len>32)
 	len=32;
-      for (i =1 ; i <= len; i++)
-	dev_info(&adap->dev,
-		 "data->block[%d]= %x\n",
-		 i,data->block[i]);
+      for(i=1;i<=len;i++)
+	dev_info(&adap->dev,"data->block[%d]=%.2x\n",i,data->block[i]);
     }
     break;
   }
   return 0;
 }
-*/
+
+static u32 spark_func(struct i2c_adapter *adapter)
+{
+ return I2C_FUNC_SMBUS_QUICK | 12C_FUNC_SMBUS_BYTE |
+   I2C_FUNC_SMBUS_BYTE_DATA | 12C_FUNC_SMBUS_WORD_DATA |
+   I2C_FUNC_SMBUS_BLOCK_DATA;
+}
+
+static struct i2c_algorithm spark_algorithm ={
+  .name          = "spark_algorithm",
+  .id            = I2C_ALGO_BUS,
+  .smbus_xfer    = spark_access,
+  .functionality = spark_func,
+};
+
+static struct i2c_adapter spark_adapter = {
+  .owner         = THIS_MODULE,
+  .class         = I2C_ADAP_CLASS_SMBUS,
+  .algo          = &spark_algorithm,
+  .name          = "spark_adapter",
+};
+
 static int dev_release(struct inode *inodep,struct file *filep){
   printk(KERN_INFO "Sparkfun: Device successfully closed\n");
   return 0;
