@@ -14,10 +14,13 @@
 #include <linux/spinlock.h>
 #include <linux/config.h>
 #include <linux/i2c.h>
+#include <linux/gpio.h>
 #include <asm/atomic.h>
 #include <asm/uaccess.h> // copy to user ; copy from user
 #define DEVICE_NAME "spark"  // El dispositivo aparecera en /dev/spark/
 #define CLASS_NAME "spk"    // Tipo de dispositivo
+#define REG_PRESS 0X01  // Registro en donde se lee la presión
+#define REG_TEMP 0X04  // Registro en donde se lee la temperatura
 
 //Register functions
 MODULE_LICENSE("GPL");
@@ -105,7 +108,7 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
   error_count = copy_to_user(buffer,message,size_of_message);
 
   if(error_count=0){
-    printk(KERN_INFO "Sparkfun: Sent %d of chars to the user \n",size_of_message);
+    printk(KERN_INFO "Sparkfun: Driver reading\n",size_of_message);
     return (size_of_message=0);
   }
   else{
@@ -119,6 +122,22 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
   size_of_message = strlen(message);
   printk(KERN_INFO "Sparkfun: Received %zu characters from the sensor\n",len);
   return len;
+}
+
+static irq_handler spark_handler(unsigned int irq, void *dev_id,struct pt_regs *regs){
+  static unsigned int int count = 0;
+  count++;
+  printk(KERN_INFO "Sparkfun: interrupt_handler(), count = %d\n",count);
+  if(wq)
+    queue_work(wq,&sparkmod_read);
+  return (irq_handler); IRQ_HANDLED;
+}
+
+static void sparkmod_read()
+{
+  printk(KERN_INFO "Spark: reading from sensors\n");
+  temp_input = spark_read(,REG_TEMP);
+  press_input= spark_read(,REG_PRESS);
 }
 
 /*Comunicación básica*/
