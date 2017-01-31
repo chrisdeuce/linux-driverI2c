@@ -1,8 +1,8 @@
 /*
-Información del driver
-date:    Jan 20 2017
-version: 1.0
-brief:  Driver para utilizar la estación meteorologica I2C sparkfun weathershield 
+**Información del driver
+**date:    Jan 20 2017
+**version: 1.0
+**brief:  Driver para utilizar la estación meteorologica I2C sparkfun weathershield 
 */
 #include <linux/module.h>
 #include <linux/init.h>
@@ -56,7 +56,7 @@ static int __init spark_init(void)
 {
   printk(KERN_INFO "Sparkfun: Initializing the Sparkfun \n");
   // Allocating a major number for the device
-  major_number = register_chrdev(0,DEVICE_NAME,&fops);
+  majorNumber = register_chrdev(0,DEVICE_NAME,&fops);
   if (majorNumber<0)
     {
       printk(KERN_ALERT "Sparkfun failed to register a major number\n");
@@ -86,7 +86,7 @@ static int __init spark_init(void)
 }
 
 static void __exit sparkfun_exit(void){
-  device_destroy(slarkClass,MKDEV(majorNumber,0)); /*Removing the device*/
+  device_destroy(sparkClass,MKDEV(majorNumber,0)); /*Removing the device*/
   class_unregister(sparkClass);
   class_destroy(sparkClass);
   unregister_chrdev(majorNumber,DEVICE_NAME);
