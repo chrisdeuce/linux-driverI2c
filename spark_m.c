@@ -10,6 +10,7 @@
 #include <linux/kernel.h>
 #include <linux/input.h>
 #include <linux/fs.h>
+#include <linux/stddef.h>
 #include <linux/spinlock.h>
 #include <linux/semaphore.h>
 #include <linux/i2c.h>
@@ -35,10 +36,10 @@ static struct device* sparkDevice = NULL;   // puntero a la estructura del dispo
 /* Funciones prototipo para el driver */
 static int dev_open(struct inode *, struct file *);
 static int dev_release(struct inode *, struct file *);
-static ssize_t dev_read(struct file *, size_t,loff_t *);
+static ssize_t dev_read(struct file *,char *, size_t,loff_t *);
 static ssize_t dev_write(struct file *, const char *, size_t, loff_t*);
 
-MODULE_DEVICE_TABLE(i2c, spark_idtable);
+//MODULE_DEVICE_TABLE(i2c, spark_idtable);
 
 
 /*Brief devices*/
@@ -64,7 +65,7 @@ static int __init spark_init(void)
     }
   printk(KERN_INFO "Sparkfun: registered correctly with major number %d\n",majorNumber);
   /*Register the device class*/
-  sparkClass = device_create(THIS_MODULE,CLASS_NAME);
+  sparkClass = class_create(THIS_MODULE,CLASS_NAME);
   if(IS_ERR(sparkClass)){
     class_destroy(sparkClass);
     unregister_chrdev(majorNumber,DEVICE_NAME);
@@ -85,7 +86,7 @@ static int __init spark_init(void)
   return 0;
 }
 
-static void __exit sparkfun_exit(void){
+static void __exit spark_exit(void){
   device_destroy(sparkClass,MKDEV(majorNumber,0)); /*Removing the device*/
   class_unregister(sparkClass);
   class_destroy(sparkClass);
@@ -116,20 +117,30 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset){
   sprintf(message, "%s(%zu letters)",buffer, len);
   size_of_message = strlen(message);
-  pritnk(KERN_INFO "Sparkfun: Received %zu characters from the sensor\n",len);
+  printk(KERN_INFO "Sparkfun: Received %zu characters from the sensor\n",len);
   return len;
 }
 
 /*Comunicación básica*/
 
-int i2c_master_send(struct i2c_client *client, const char *buf, int count);
-int i2c_master_recv(struct i2c_client *client, char *buf, int count);
+//int i2c_master_send(struct i2c_client *client, const char *buf, int count);
+//int i2c_master_recv(struct i2c_client *client, char *buf, int count);
+
+/*
+static struct spark_adapter sp_adapter = {
+  .owner = THIS_MODULE,
+  .class = I2C_ADAP_CLASS_SMBUS
+  .algo = &spark_algorithm,
+  .name = "sp_adapter",
+};
+
+retval = i2c_add_adapter(&sp_adapter);
 
 
 static struct spark_algorithm spfun_algorithm = {
-  .name          = "fun_algorithm",
+  .name          = "spfun_algorithm",
   .id            = I2C_ALGO_SMBUS,
-  .smbus_xfer    = fun_access,
+  .smbus_xfer    = spfun_access,
   .functionality = spfun_func,
 };
 
@@ -140,7 +151,7 @@ static u32 spfun_func(struct spark_adapter *adapter)
          I2C_FUNC_SMBUS_BYTE_DATA |
          I2C_FUNC_SMBUS_WORD_DATA |
          I2C_FUNC_SMBUS_BLOCK_DATA;
-};
+}
 
 static s32 spfun_access(struct spark_adapter *adap,
 			u16 addr,
@@ -151,8 +162,7 @@ static s32 spfun_access(struct spark_adapter *adap,
 			union i2c_smbus_data *data)
 {
   int i, len;
-  dev_info(&adap->dev, "%s was called with the"
-	   "following parameters:\n",
+  dev_info(&adap->dev, "%s was called with the following parameters:\n",
 	   __FUNCTION__);
   dev_info(&adap->dev, "addr = %.4x\n",addr);
   dev_info(&adap->dev, "flags = %.4x\n",flags);
@@ -186,7 +196,7 @@ static s32 spfun_access(struct spark_adapter *adap,
     dev_info(&adap->dev,
 	     "size = I2C_SMBUS_BLOCK_DATA\n");
     if(read_write== I2C_SMBUS_WRITE){
-      dev_info(&adpa->dev,"data = %.4x\n",
+      dev_info(&adap->dev,"data = %.4x\n",
 	       data->word);
       if (len<0)
 	len=0;
@@ -201,7 +211,7 @@ static s32 spfun_access(struct spark_adapter *adap,
   }
   return 0;
 }
-
+*/
 static int dev_release(struct inode *inodep,struct file *filep){
   printk(KERN_INFO "Sparkfun: Device successfully closed\n");
   return 0;
