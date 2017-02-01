@@ -1,7 +1,7 @@
 /*
 **Información del driver
 **date:    Jan 08 2017
-**version: 1.0
+**version: 1.1.12
 **brief:  Driver para utilizar la estación meteorologica I2C sparkfun weathershield 
 */
 #include <linux/module.h>
@@ -46,9 +46,6 @@ static struct spark_data_struct {
 
 
 static int majorNumber;                     // Almacena el número de dispositivo
-static char message[256] ={0};              // Memoria para la cadena que pasa del espacio de usuario
-static short size_of_message;               // Utilizado para saber el tamaño de la cadena almacenada
-static int numberOpens =0;                  // Contador de uso del dispositivo
 static struct class* sparkClass = NULL;     // puntero de la clase del dispositivo
 static struct device* sparkDevice = NULL;   // puntero a la estructura del dispositivo
 
@@ -63,6 +60,7 @@ static ssize_t dev_write(struct file *, const char *, size_t, loff_t*);
 /*Brief devices*/
 static struct file_operations fops =
 {
+    .owner           = THIS_MODULE; 
     .open            = dev_open,
     .read            = dev_read,
     .unlocked_ioctl  = dev_ioctl,
@@ -74,6 +72,7 @@ static struct file_operations fops =
 /*Iniciando el driver*/
 static int __init spark_init(void)
 {
+  int res;
   printk(KERN_INFO "Sparkfun: Initializing the Sparkfun \n");
   // Allocating a major number for the device
   majorNumber = register_chrdev(0,DEVICE_NAME,&fops);
@@ -403,8 +402,6 @@ static void sparkmod_handler(struct sp_struct *s)
   sensor_input[1] = spark_read(,REG_PRESS);
 }
 
-/*Comunicación básica*/
-
 static s32 spark_access(struct i2c_adapter *adap, u16 addr,
 			unsigned short flags, char read_write,
 			u8 command, int size, union i2c_smbus_data *data)
@@ -452,27 +449,6 @@ static s32 spark_access(struct i2c_adapter *adap, u16 addr,
   }
   return 0;
 }
-
-static u32 spark_func(struct i2c_adapter *adapter)
-{
- return I2C_FUNC_SMBUS_QUICK | 12C_FUNC_SMBUS_BYTE |
-   I2C_FUNC_SMBUS_BYTE_DATA | 12C_FUNC_SMBUS_WORD_DATA |
-   I2C_FUNC_SMBUS_BLOCK_DATA;
-}
-
-static struct i2c_algorithm spark_algorithm ={
-  .name          = "spark_algorithm",
-  .id            = I2C_ALGO_BUS,
-  .smbus_xfer    = spark_access,
-  .functionality = spark_func,
-};
-
-static struct i2c_adapter spark_adapter = {
-  .owner         = THIS_MODULE,
-  .class         = I2C_ADAP_CLASS_SMBUS,
-  .algo          = &spark_algorithm,
-  .name          = "spark_adapter",
-};
 
 static int dev_release(struct inode *inodep,struct file *filep){
   struct i2c_client *client = filep->private_data;
