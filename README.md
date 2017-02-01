@@ -5,4 +5,8 @@ El protocolo I2C es un bus tipo serial que es utilizado para comunicarse con dis
 
 Para la compilación de este modulo se tiene dos opciones, se puede hacer por medio de un simple “make” para las arquitectura x86, y para arquitectura ARM como lo es el dispositivo embebido se debe utilizar “make ARCH=arm”.
 
-Integraantes del quipo: Gandarilla Pérez Samuel, Ruiz Mendoza Félix Agustín, Serrano Ramírez Marco Silvano
+Integrantes del equipo: 
+
+	Gandarilla Pérez Samuel
+	Ruiz Mendoza Félix Agustín
+	Serrano Ramírez Marco Silvano
