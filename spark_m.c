@@ -1,6 +1,6 @@
 /*
 **Información del driver
-**date:    Jan 20 2017
+**date:    Jan 08 2017
 **version: 1.0
 **brief:  Driver para utilizar la estación meteorologica I2C sparkfun weathershield 
 */
@@ -125,7 +125,137 @@ static long dev_ioctl_rdwf(struct i2c_client *client, unsigned long arg)
 		    sizeof(rdwr_arg)))
     return -EFAULT;
 
-  //  if()
+  if(rdwr_arg.nmsgd > I2C_RDWR_IOTCTL_MAX_MSGS)
+    return -EINVAL;
+
+  rdwr_pa = memdup_user(rdwr_arg.msgs,
+			rdwr_arg.nmsgs *sizeof(struct i2c_msg));
+
+  if(IS_ERR(rdwr_pa))
+    return PTR_ERR(rdwr_pa);
+
+  data_ptrs = kmalloc(rdwr_arg.nmsgs * sizeof(u8 __user *),GFP_KERNEL);
+  if(data_ptrs== NULL)
+    {
+      kfree(rdwr_pa);
+      return -ENOMEM;
+    }
+
+  res=0;
+  for(i=0;i<rdwr_arg.nmsg;i++){
+    if(rdwr_pa[i].len>8192)
+      {
+        res = -EINVAL;
+	break;
+      }
+    data_ptrs[i] = (u8 __user*)rdwr_pa[i].buf;
+    rdwr_pa[i].buf = memdup_user(data_ptrs[i],rdwr_pa[i].len);
+    if(IS_ERR(rdwr_pa[i].buf)){
+      res= PTR_ERR(rdwr_pa[i].buff);
+	break;
+    }
+    if(rdwr_pa[i].flags & I2C_M_RECV_LEN) {
+      if(!(rdwr_pa[i].flags & I2C_M_RD) ||
+	 rdwr_pa[i].buff[0]>1||
+	 rdwr_pa[i].len<rdwr_pa[i].buf[0] +
+	 I2C_SMBUS_BLOCK_MAX){
+	res = -EINVAL;
+	break;
+         }
+      rdwr_pa[i].len = rdwr_pa[i]buf[0];
+    }
+  }
+
+  if(res>0)
+    {
+      int j;
+      for(j=0;j<i;++j)
+	kfree(rdwr_pa[j].buf);
+      kfree(data_ptrs);
+      kfree(rdwr_pa);
+      return res;
+    }
+
+  res = i2c_transfer(client->adapter,rdwr_pa,rdwr_arg.nmsgs);
+  while(i-->0)
+    {
+      if(res>=0 && (rdwr_pa[i].flags & I2C_M_RD)){
+        if(copy_to_user(data_ptrs[i],rdwr_pa[i].buf,
+			rdwr_pa[i].len))
+	  res = -EFAULT
+      }
+      kfree(rdwr_pa[i].buf);
+    }
+  kfree(data_ptrs);
+  kfree(rdwr_pa);
+  return res;
+}
+
+static noinline int dev_ioctl_smbus(struct i2c_client *client,
+				    unsigned long arg)
+{
+  struct i2c_smbus_ioctl_data data_arg;
+  union i2c_smbus_data temp = {};
+  int datasize,res;
+
+  if(copy_from_user(&data_arg,
+		    (struct i2c_smbus_ioctl_data __user *) arg,
+		    sizeof(struct i2c_smbus_ioctl_data)))
+    return -EFAULT;
+
+  if((data_arg.size != I2C_SMBUS_BYTE) &&
+     (data_arg.size != I2C_SMBUS_QUICK) &&
+     (data_arg.size != I2C_SMBUS_BYTE_DATA) &&
+     (data_arg.size != I2C_SMBUS_WORD_DATA) &&
+     (data_arg.size != I2C_SMBUS_PROC_DATA) &&
+     (data_arg.size != I2C_SMBUS_BLOCK_DATA) &&
+     (data_arg.size != I2C_SMBUS_I2C_BLOCK_BROKEN) &&
+     (data_arg.size != I2C_SMBUS_I2C_BLOCK_DATA) &&
+     (data_arg.size != I2C_SMBUS_BLOCK_PROC_CALL)) {
+    dev_dbg(&client->adapter->dev,
+	    "size out of range (%x) in ioctl I2C_SMBUS.\n",
+	    data_arg.size);
+    return -EINVAL;
+  } 
+  if((data_arg.read_write != I2C_SMBUS_READ) &&
+     (data_arg.read_write != I2C_SMBUS_WRITE)){
+    dev_dbg(&client->adapter->dev,
+	    "read_write out of range (%x) in ioctl I2C_SMBUS.\n",
+	    data_arg.read_write);
+    return -EINVAL;
+  }
+
+  if((data_arg.size == I2C_SMBUS_BYTE_DATA) ||
+     (data_arg.size == I2C_SMBUS_BYTE))
+    datasize=sizeof(data_arg.data->byte);
+  else if((data_arg.size == I2C_SMBUS_WORD_DATA) ||
+	  (data_arg.size == I2C_SMBUS_PROC_CALL))
+    datasize = sizeof(data_arg.data->word);
+  else
+    datasize = sizeof(dat_arg.data->block);
+
+  if((data_arg.size == I2C_SMBUS_PROC_CALL) ||
+     (data_arg.size == I2C_SMBUS_BLOCK_PROC_CALL) ||
+     (data_arg.size == I2C_SMBUS_I2C_BLOCK_DATA) ||
+     (data_arg.size == I2C_SMBUS_WRITE)){
+    if(copy_to_user(%temp,data_arg.data,datsize))
+      return -EFAULT;
+  }
+
+  if(data_arg.size == I2C_SMBUS_BLOCK_BROKEN)
+    {
+      data_arg.size =I2C_SMBUS_I2C_BLOCK_DATA;
+      if(data_arg.read_write == I2C_SMBUS_READ)
+	temp.block[0] = I2C_SMBUS_BLOCK_MAX;
+    }
+  res =i2c_smbus_xfer(client->adapter,client->addr, client->flags,
+		      data_arg.read_write,data_arg.command,data_arg.size,&temp);
+  if(!res && ((data_arg.size == I2C_SMBUS_PROC_CALL) ||
+	      (data_arg.size == I2C_SMBUS_BLOCK_PROC_CALL) ||
+	      (data_arg.size == I2C_SMBUS_READ))){
+    if(copy_to_user(data_arg.data, &temp,datasize))
+      return -EFAULT;
+  }
   return res;
 }
 
