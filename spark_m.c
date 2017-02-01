@@ -22,11 +22,21 @@
 #define REG_PRESS 0X01  // Registro en donde se lee la presión
 #define REG_TEMP 0X04  // Registro en donde se lee la temperatura
 
-//Register functions
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Team StationX");
-MODULE_DESCRIPTION("Homebrew driver for sparkfun weather station for embedded linux diploma curse");
-MODULE_VERSION("0.1");
+
+static struct spark_data data;
+static unsigned int irqNumber;
+static u8 sensor_input[2];
+static unsigned int irqNumber;
+
+
+static void sparkmod_handler(struct sp_struct *s);
+
+static struct spark_data_struct {
+  u8 tempdata;
+  u8 pressdata;
+  unsigned int irq;
+} spark_data;
+
 
 static int majorNumber;                     // Almacena el número de dispositivo
 static char message[256] ={0};              // Memoria para la cadena que pasa del espacio de usuario
@@ -36,14 +46,12 @@ static struct class* sparkClass = NULL;     // puntero de la clase del dispositi
 static struct device* sparkDevice = NULL;   // puntero a la estructura del dispositivo
 
 
+
 /* Funciones prototipo para el driver */
 static int dev_open(struct inode *, struct file *);
 static int dev_release(struct inode *, struct file *);
 static ssize_t dev_read(struct file *,char *, size_t,loff_t *);
 static ssize_t dev_write(struct file *, const char *, size_t, loff_t*);
-
-//MODULE_DEVICE_TABLE(i2c, spark_idtable);
-
 
 /*Brief devices*/
 static struct file_operations fops =
@@ -133,11 +141,11 @@ static irq_handler spark_handler(unsigned int irq, void *dev_id,struct pt_regs *
   return (irq_handler); IRQ_HANDLED;
 }
 
-static void sparkmod_read()
+static void sparkmod_handler(struct sp_struct *s)
 {
   printk(KERN_INFO "Spark: reading from sensors\n");
-  temp_input = spark_read(,REG_TEMP);
-  press_input= spark_read(,REG_PRESS);
+  sensor_input[0] = spark_read(,REG_TEMP);
+  sensor_input[1] = spark_read(,REG_PRESS);
 }
 
 /*Comunicación básica*/
@@ -215,6 +223,12 @@ static int dev_release(struct inode *inodep,struct file *filep){
   printk(KERN_INFO "Sparkfun: Device successfully closed\n");
   return 0;
 }
+
+//Register functions
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Team StationX");
+MODULE_DESCRIPTION("Homebrew driver for sparkfun weather station");
+MODULE_VERSION("0.1");
 
 module_init(spark_init);
 module_exit(spark_exit);
