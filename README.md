@@ -7,6 +7,6 @@ Para la compilación de este modulo se tiene dos opciones, se puede hacer por me
 
 Integraantes del quipo:
 
-  Gandarilla Pérez Samuel
-  Ruiz Mendoza Félix Agustín
-  Serrano Ramírez Marco Silvano
+Gandarilla Pérez Samuel
+Ruiz Mendoza Félix Agustín
+Serrano Ramírez Marco Silvano
