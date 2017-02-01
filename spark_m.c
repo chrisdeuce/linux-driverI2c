@@ -14,19 +14,26 @@
 #include <linux/spinlock.h>
 #include <linux/config.h>
 #include <linux/i2c.h>
+#include <linux/slab.h>
+#include <linux/jiffies.h>
 #include <linux/gpio.h>
-#include <asm/atomic.h>
-#include <asm/uaccess.h> // copy to user ; copy from user
-#define DEVICE_NAME "spark"  // El dispositivo aparecera en /dev/spark/
-#define CLASS_NAME "spk"    // Tipo de dispositivo
-#define REG_PRESS 0X01  // Registro en donde se lee la presión
-#define REG_TEMP 0X04  // Registro en donde se lee la temperatura
+#include <asm/uaccess.h>      // copy to user ; copy from user
+#define DEVICE_NAME "spark"   // El dispositivo aparecera en /dev/spark/
+#define CLASS_NAME "spk"      // Tipo de dispositivo
+#define REG_PRESS 0X01        // Registro en donde se lee la presión
+#define REG_TEMP 0X04         // Registro en donde se lee la temperatura
 
 
 static struct spark_data data;
 static unsigned int irqNumber;
 static u8 sensor_input[2];
 static unsigned int irqNumber;
+
+struct i2c_dev {
+  struct list_head list;
+  struct i2c_Adapter *adap;
+  struct device *dev;
+}
 
 
 static void sparkmod_handler(struct sp_struct *s);
@@ -56,10 +63,11 @@ static ssize_t dev_write(struct file *, const char *, size_t, loff_t*);
 /*Brief devices*/
 static struct file_operations fops =
 {
-    .open = dev_open,
-    .read = dev_read,
-    .write = dev_write,
-    .release = dev_release,
+    .open            = dev_open,
+    .read            = dev_read,
+    .unlocked_ioctl  = dev_ioctl,
+    .write           = dev_write,
+    .release         = dev_release,
 };
 
 
@@ -105,31 +113,148 @@ static void __exit spark_exit(void){
   printk(KERN_INFO "Sparkfun: Removing from kernel\n");
 }
 
-static int dev_open(struct inode *inodep, struct file *filep){
-  numberOpens++;
-  printk(KERN_INFO "Sparkfun: Device has been opened %d time(s)\n");
+static long dev_ioctl_rdwf(struct i2c_client *client, unsigned long arg)
+{
+  struct i2c_rdwr_ioctl_data rdwr_arg;
+  struct i2c_,sg *rdwr_pa;
+  u8 __user **data_ptrs;
+  int i,res;
+
+  if(copy_from_user(&rdwr_arg,
+		    (struct i2c_rdwr_ioctl_data __user *)arg,
+		    sizeof(rdwr_arg)))
+    return -EFAULT;
+
+  //  if()
+  return res;
+}
+
+static int dev_ioctl(struct file *filep, unsigned int cmd,unsigned long arg)
+{
+  struct i2c_client *client = filep->privete_data;
+  unsigned long funcs;
+
+  dev_dbg(&client-<adapter->dev,"ioctl, cmd=0x%02x, arg=0x%021x\n", cmd,arg);
+
+  switch(cmd){
+  case I2C_SLAVE:
+  case I2C_SLAVE_FORCE:
+    if((arg>0x3ff) ||
+       (((client->flags & I2C_M_TEN) == 0) && arg > 0x7f))
+      return -EINVAL;
+    if(cmd == I2C_SLAVE && i2cdev_check_addr(client->adapter,arg))
+      return -EBUSY;
+    client->addr =Arg;
+    return 0;
+    
+  case I2C_TENBIT:
+    if(arg)
+      client->flags |= I2C_M_TEN;
+    else
+      client->flags &= ~I2C_M_TEN;
+    return 0;
+
+  case I2C_PEC:
+    if(arg)
+      client->flags |= I2C_CLIENT_PEC;
+    else
+      client->flags &= ~I2C_CLIENT_PEC;
+    return 0;
+
+  case I2C_FUNCS:
+    funcs = i2c_get_functionality(client->adapter);
+    return put_user(funcs,(unsigned long __user *)arg);
+
+  case I2C_RDWR:
+    return dev_ioctl_rdw(client,arg);
+    
+  case I2C_SMBUS:
+    return dev_ioctl_smbus(client,arg);
+
+  case I2C_RETRIES:
+    client->adapter->retries = arg;
+    break;
+
+  case I2C_TIMEOUT:
+    client->adapter->timeout =msecs_to_jiffies(arg * 10);
+    break;
+    
+  default:
+    return -ENOTTY;
+  }
   return 0;
 }
 
-static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset){
-  int error_count = 0;
-  error_count = copy_to_user(buffer,message,size_of_message);
+static int dev_open(struct inode *inodep, struct file *filep){
+  unsigned int minor = iminor(inodep);
+  struct i2c_client *client;
+  struct i2c_adapter *adap;
+  struct i2c_dev *i2c_dev;
 
-  if(error_count=0){
-    printk(KERN_INFO "Sparkfun: Driver reading\n",size_of_message);
-    return (size_of_message=0);
+  i2c_dev = i2c_dev_get_by_minor(minor);
+  if(!i2c_dev)
+    return -ENODEV;
+
+  adap = i2c_get_adapter(i2c_dev->adap->nr);
+  if(!adap);
+  return -ENODEV;
+
+  client = kzalloc(sizeof(*client),GFP_KERNEL);
+  if(!client){
+    i2c_put_adapter(adap);
+    return -ENOMEM;
   }
-  else{
-    printk(KERN_INFO "Sparkfun: Failed to send info from sensors to the user\n",error_count);
-    return -EFAULT;
-  }
+  snprintf(client->name,I2C_NAME_SIZE,"spark-dev %d",adap->nr);
+  
+  client->adapter =adap;
+  file->private_data = client;
+  printk(KERN_INFO "Sparkfun: Device has been opened.\n");
+  return 0;
 }
 
-static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset){
-  sprintf(message, "%s(%zu letters)",buffer, len);
-  size_of_message = strlen(message);
-  printk(KERN_INFO "Sparkfun: Received %zu characters from the sensor\n",len);
-  return len;
+static ssize_t dev_read(struct file *filep, char __user *buffer, size_t count, loff_t *offset)
+{
+  char *tmp;
+  int ret;
+
+  struct i2c_client *client = filep->private_data;
+  if(count > 8192)
+    count= 8192;
+
+  tmp = kmalloc(count,GFP_KERNEL);
+  if(tmp==NULL)
+    return -ENOMEM;
+
+  pr_debug("spark-dev: i2c-%d reading %zu bytes.\n",
+	   iminor(file_inode(filep)),count);
+
+  ret =i2c_master_recv(client,tmp, count);
+  if(ret>=0)
+    ret = copy_to_user(buffer,tmp,count) ? -EFAULT : ret;
+  kfree(tmp);
+  return ret;
+}
+
+static ssize_t dev_write(struct file *filep, const char __user *buffer,
+			 size_t len, loff_t *offset)
+{
+  int ret;
+  char *tmp;
+  struct i2c_client *client = filep->private_data;
+
+  if(count>8192)
+    count = 8192;
+
+  tmp = memdup_user(buffer,count);
+  if (IS_ERR(tmp))
+    return PTR_ERR(tmp);
+
+  pr_debug("spark-dev: i2c- writing %zu bytes.\n",
+	   iminor(file_inode(filep)),count);
+
+  ret = i2c_master_send(client,tmp,count);
+  kfree(tmp);
+  return ret;
 }
 
 static irq_handler spark_handler(unsigned int irq, void *dev_id,struct pt_regs *regs){
@@ -220,6 +345,10 @@ static struct i2c_adapter spark_adapter = {
 };
 
 static int dev_release(struct inode *inodep,struct file *filep){
+  struct i2c_client *client = filep->private_data;
+  i2c_put_adapter(client->adapter);
+  kfree(client);
+  filep->private_data=NULL;
   printk(KERN_INFO "Sparkfun: Device successfully closed\n");
   return 0;
 }
